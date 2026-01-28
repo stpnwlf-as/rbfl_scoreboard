@@ -1,0 +1,62 @@
+<script>
+    const firebaseConfig = {
+        // ТВОЙ КОНФИГ ОСТАЕТСЯ ТЕМ ЖЕ
+        apiKey: "AIzaSyClxwTPMqybIpYEllgyL6_H5an_1N05kzM",
+        authDomain: "scoreboard-6f187.firebaseapp.com",
+        databaseURL: "https://scoreboard-6f187-default-rtdb.firebaseio.com",
+        projectId: "scoreboard-6f187",
+        storageBucket: "scoreboard-6f187.firebasestorage.app",
+        messagingSenderId: "357357389212",
+        appId: "1:357357389212:web:c1f13292a9ec0745afb459"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function updateTeams() {
+        db.ref('match').update({
+            homeName: document.getElementById('teamHome').value,
+            awayName: document.getElementById('teamAway').value,
+            homeColor: document.getElementById('colorHome').value,
+            awayColor: document.getElementById('colorAway').value
+        });
+    }
+
+    function changeScore(team, val) {
+        db.ref('match/' + team + 'Score').transaction(s => Math.max(0, (s || 0) + val));
+    }
+
+    function setPeriod(p) { db.ref('match/period').set(p); }
+
+    // ТАЙМЕР: Установка минут
+    function setTimer(m) {
+        db.ref('match/timer').update({ minutes: m, seconds: 0, running: false });
+    }
+
+    function toggleTimer() {
+        db.ref('match/timer/running').transaction(r => !r);
+    }
+
+    function resetTimer() {
+        db.ref('match/timer').update({ minutes: 0, seconds: 0, running: false });
+    }
+
+    // ЛОГИКА ОБРАТНОГО ОТСЧЕТА (теперь в админке)
+    setInterval(() => {
+        db.ref('match/timer').once('value', snapshot => {
+            let t = snapshot.val();
+            if (t && t.running) {
+                let totalSec = t.minutes * 60 + t.seconds;
+                
+                if (totalSec > 0) {
+                    totalSec--; // Уменьшаем на 1
+                    db.ref('match/timer').update({
+                        minutes: Math.floor(totalSec / 60),
+                        seconds: totalSec % 60
+                    });
+                } else {
+                    db.ref('match/timer/running').set(false); // Остановить на 00:00
+                }
+            }
+        });
+    }, 1000);
+</script>
