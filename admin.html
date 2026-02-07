@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RBFL Control Center</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .field-selector { display: flex; gap: 5px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+        .field-btn { padding: 10px 15px; background: #333; border: none; color: white; cursor: pointer; border-radius: 5px; font-size: 0.9em; }
+        .field-btn.active { background: #1e7b4d; font-weight: bold; box-shadow: 0 0 10px #1e7b4d; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 15px; width: 100%; max-width: 450px; border: 1px solid #333; }
+        h2 { color: #1e7b4d; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        h3 { margin-top: 0; font-size: 1em; color: #aaa; text-transform: uppercase; }
+        input[type="text"], input[type="url"] { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #333; background: #000; color: white; box-sizing: border-box; }
+        .flex { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; }
+        button { flex: 1; padding: 12px; cursor: pointer; border: none; border-radius: 6px; font-weight: bold; }
+        .btn-update { background: #1e7b4d; color: white; width: 100%; margin-top: 5px; }
+        .btn-plus { background: #2196F3; color: white; font-size: 1.5em; height: 60px; }
+        .btn-minus { background: #444; color: white; margin-top: 8px; font-size: 0.9em; }
+        .btn-reset { background: #f44336; color: white; font-size: 0.8em; margin-top: 20px; width: 100%; opacity: 0.8; }
+        
+        /* Стили счета в админке */
+        .admin-score-display { font-size: 3.5em; font-weight: 900; color: #1e7b4d; margin: 5px 0; line-height: 1; }
+        .team-name-label { font-size: 0.9em; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
+        
+        .timer-display { font-size: 3em; text-align: center; color: #ff9800; font-family: monospace; margin: 10px 0; font-weight: bold; }
+        .switch-container { display: flex; align-items: center; justify-content: space-between; background: #252525; padding: 12px; border-radius: 8px; margin-top: 10px; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #1e7b4d; }
+        input:checked + .slider:before { transform: translateX(24px); }
+    </style>
+</head>
+<body>
+
+    <h2 id="adminTitle">ТАБЛО №1 (Осн.)</h2>
+    
+    <div class="field-selector">
+        <button class="field-btn active" onclick="selectField(1)">Поле №1</button>
+        <button class="field-btn" onclick="selectField(2)">Поле №2</button>
+        <button class="field-btn" onclick="selectField(3)">Поле №3</button>
+        <button class="field-btn" onclick="selectField(4)">Поле №4</button>
+        <button class="field-btn" onclick="selectField(5)">Поле №5</button>
+    </div>
+
+    <div class="card">
+        <h3>Фон трансляции</h3>
+        <input type="url" id="bgUrl" placeholder="Вставьте ссылку на картинку">
+        <div class="switch-container">
+            <span>Включить фон на табло</span>
+            <label class="switch">
+                <input type="checkbox" id="bgToggle" onclick="toggleOverlay()">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Счет матча</h3>
+        <div class="flex">
+            <div style="flex:1; text-align:center; overflow:hidden;">
+                <div id="curHome" class="team-name-label">ХОЗЯЕВА</div>
+                <div id="scoreHome" class="admin-score-display">0</div>
+                <button class="btn-plus" onclick="changeScore('home', 1)">+1</button>
+                <button class="btn-minus" onclick="changeScore('home', -1)">-1</button>
+            </div>
+            
+            <div style="display: flex; align-items: center; justify-content: center; font-size: 2em; font-weight: bold; color: #444;">:</div>
+
+            <div style="flex:1; text-align:center; overflow:hidden;">
+                <div id="curAway" class="team-name-label">ГОСТИ</div>
+                <div id="scoreAway" class="admin-score-display">0</div>
+                <button class="btn-plus" onclick="changeScore('away', 1)">+1</button>
+                <button class="btn-minus" onclick="changeScore('away', -1)">-1</button>
+            </div>
+        </div>
+        <button class="btn-reset" onclick="resetScore()">Обнулить счет (0:0)</button>
+    </div>
+
+    <div class="card">
+        <h3>Названия команд</h3>
+        <input type="text" id="teamHome" placeholder="Название Хозяев">
+        <input type="text" id="teamAway" placeholder="Название Гостей">
+        <button class="btn-update" onclick="updateTeams()">ПРИМЕНИТЬ НАЗВАНИЯ</button>
+    </div>
+
+    <div class="card">
+        <h3>Время и Тайм</h3>
+        <div class="timer-display" id="adminTimer">00:00</div>
+        <div class="flex">
+            <button style="background:#ff9800; color:white;" onclick="setupTimer(20)">20 МИН</button>
+            <button style="background:#ff9800; color:white;" onclick="setupTimer(25)">25 МИН</button>
+        </div>
+        <div class="flex">
+            <button id="startBtn" style="background:#1e7b4d; color:white;" onclick="toggleTimer()">СТАРТ</button>
+            <button style="background:#444; color:white;" onclick="resetTimer()">СБРОС</button>
+        </div>
+        <div class="flex" style="margin-top:15px;">
+            <button id="p1" style="background:#333; color:white;" onclick="setPeriod(1)">1 ТАЙМ</button>
+            <button id="p2" style="background:#333; color:white;" onclick="setPeriod(2)">2 ТАЙМ</button>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyClxwTPMqybIpYEllgyL6_H5an_1N05kzM",
+            authDomain: "scoreboard-6f187.firebaseapp.com",
+            databaseURL: "https://scoreboard-6f187-default-rtdb.firebaseio.com",
+            projectId: "scoreboard-6f187",
+            storageBucket: "scoreboard-6f187.firebasestorage.app",
+            messagingSenderId: "357357389212",
+            appId: "1:357357389212:web:c1f13292a9ec0745afb459"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentField = 1;
+        let fieldRef = null;
+
+        function selectField(n) {
+            currentField = n;
+            if (fieldRef) fieldRef.off(); // Отключаем старый слушатель
+
+            document.querySelectorAll('.field-btn').forEach((b, i) => {
+                b.classList.toggle('active', i === n-1);
+            });
+            document.getElementById('adminTitle').innerText = "ТАБЛО №" + n + (n===1 ? " (Осн.)" : n===2 ? " (Дальнее)" : "");
+            
+            fieldRef = db.ref('fields/f' + currentField);
+            fieldRef.on('value', snap => {
+                const data = snap.val();
+                if (!data) return;
+                
+                // Обновляем текст в админке
+                document.getElementById('curHome').innerText = data.homeName || "ХОЗЯЕВА";
+                document.getElementById('curAway').innerText = data.awayName || "ГОСТИ";
+                document.getElementById('scoreHome').innerText = data.homeScore || 0;
+                document.getElementById('scoreAway').innerText = data.awayScore || 0;
+                
+                // Обновляем инпуты и кнопки
+                document.getElementById('bgUrl').value = data.overlayUrl || "";
+                document.getElementById('bgToggle').checked = data.showOverlay || false;
+                
+                document.getElementById('p1').style.background = data.period == 1 ? "#1e7b4d" : "#333";
+                document.getElementById('p2').style.background = data.period == 2 ? "#1e7b4d" : "#333";
+            });
+        }
+
+        function updateTeams() {
+            db.ref('fields/f' + currentField).update({
+                homeName: document.getElementById('teamHome').value || "ХОЗЯЕВА",
+                awayName: document.getElementById('teamAway').value || "ГОСТИ"
+            });
+        }
+
+        function changeScore(team, val) {
+            db.ref('fields/f' + currentField + '/' + team + 'Score').transaction(s => Math.max(0, (s || 0) + val));
+        }
+
+        function resetScore() { if(confirm("Сбросить 0:0?")) db.ref('fields/f' + currentField).update({homeScore:0, awayScore:0}); }
+
+        function toggleOverlay() {
+            db.ref('fields/f' + currentField).update({
+                overlayUrl: document.getElementById('bgUrl').value,
+                showOverlay: document.getElementById('bgToggle').checked
+            });
+        }
+
+        function setPeriod(p) { db.ref('fields/f' + currentField + '/period').set(p); }
+
+        function setupTimer(m) {
+            const now = Date.now();
+            db.ref('fields/f' + currentField + '/timer').set({
+                durationSec: m * 60,
+                remainingAtStart: m * 60,
+                isRunning: false,
+                lastUpdate: now
+            });
+        }
+
+        function toggleTimer() {
+            const ref = db.ref('fields/f' + currentField + '/timer');
+            ref.once('value', snap => {
+                const t = snap.val();
+                if (!t) return;
+                const now = Date.now();
+                if (!t.isRunning) {
+                    ref.update({ isRunning: true, lastUpdate: now });
+                } else {
+                    const elapsedSinceLast = Math.floor((now - t.lastUpdate) / 1000);
+                    const newRemaining = Math.max(0, t.remainingAtStart - elapsedSinceLast);
+                    ref.update({ isRunning: false, remainingAtStart: newRemaining, lastUpdate: now });
+                }
+            });
+        }
+
+        function resetTimer() { setupTimer(0); }
+
+        // Обновление таймера в админке (локально)
+        setInterval(() => {
+            db.ref('fields/f' + currentField + '/timer').once('value', snap => {
+                const t = snap.val();
+                if (!t) return;
+                let rem = t.remainingAtStart;
+                if (t.isRunning) {
+                    const elapsed = Math.floor((Date.now() - t.lastUpdate) / 1000);
+                    rem = Math.max(0, t.remainingAtStart - elapsed);
+                }
+                const m = Math.floor(rem / 60);
+                const s = rem % 60;
+                document.getElementById('adminTimer').innerText = (m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
+                document.getElementById('startBtn').innerText = t.isRunning ? "ПАУЗА" : "СТАРТ";
+                document.getElementById('startBtn').style.background = t.isRunning ? "#f44336" : "#1e7b4d";
+            });
+        }, 1000);
+
+        selectField(1); // Инициализация первого поля
+    </script>
+</body>
+</html>
