@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>РБФЛ Табло</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <style>
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background: transparent;
+            font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
+            text-transform: uppercase; color: white;
+        }
+        
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 1920px; height: 1080px;
+            background-size: cover; background-position: center;
+            z-index: 9999; display: none;
+        }
+
+        /* ГЛАВНЫЙ КОНТЕЙНЕР */
+        .sc-container {
+            position: absolute;
+            top: 50px;
+            left: 50px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        /* ЦЕНТРАЛЬНАЯ БАШНЯ (СЧЕТ + ВРЕМЯ) */
+        .center-stack {
+            display: flex;
+            flex-direction: column;
+            width: 140px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            z-index: 10;
+        }
+
+        /* Блок счета */
+        .score-box {
+            background: #1e7b4d;
+            height: 55px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 44px;
+            font-weight: 900;
+            border-bottom: 2px solid rgba(0,0,0,0.2);
+        }
+
+        /* Блок времени и тайма под счетом */
+        .time-box {
+            background: #000;
+            height: 45px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+        }
+        .timer { font-size: 24px; font-weight: 800; line-height: 1; }
+        .half { font-size: 10px; color: #1e7b4d; font-weight: 900; margin-top: 2px; }
+
+        /* НАЗВАНИЯ КОМАНД */
+        .team-label {
+            font-size: 30px;
+            font-weight: 900;
+            padding: 0 25px;
+            height: 55px; /* Совпадает с высотой блока счета */
+            display: flex;
+            align-items: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            background: rgba(20, 20, 20, 0.85); /* Полупрозрачная подложка */
+            border-bottom: 5px solid #1e7b4d;
+        }
+
+        /* ЛОГОТИП (Прикреплен справа) */
+        .logo-box {
+            background: white;
+            width: 80px;
+            height: 55px; /* Совпадает с высотой команды и счета */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 5px solid #ccc;
+        }
+        .logo-box img {
+            max-height: 75%;
+            max-width: 75%;
+            object-fit: contain;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="overlay"></div>
+
+    <div class="sc-container">
+        <div class="team-label" style="text-align: right; justify-content: flex-end;" id="nameH">HOME</div>
+        
+        <div class="center-stack">
+            <div class="score-box">
+                <span id="scH">0</span>:<span id="scA">0</span>
+            </div>
+            <div class="time-box">
+                <div class="timer" id="time">00:00</div>
+                <div class="half"><span id="per">1</span> ТАЙМ</div>
+            </div>
+        </div>
+
+        <div class="team-label" id="nameA">AWAY</div>
+
+        <div class="logo-box">
+            <img src="Logo.jpg" alt="RBFL">
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyClxwTPMqybIpYEllgyL6_H5an_1N05kzM",
+            authDomain: "scoreboard-6f187.firebaseapp.com",
+            databaseURL: "https://scoreboard-6f187-default-rtdb.firebaseio.com",
+            projectId: "scoreboard-6f187",
+            storageBucket: "scoreboard-6f187.firebasestorage.app",
+            messagingSenderId: "357357389212",
+            appId: "1:357357389212:web:c1f13292a9ec0745afb459"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const fieldNum = urlParams.get('f') || 1;
+
+        db.ref('fields/f' + fieldNum).on('value', snap => {
+            const data = snap.val();
+            if(!data) return;
+
+            document.getElementById('nameH').innerText = data.homeName || "HOME";
+            document.getElementById('nameA').innerText = data.awayName || "AWAY";
+            document.getElementById('scH').innerText = data.homeScore || 0;
+            document.getElementById('scA').innerText = data.awayScore || 0;
+            document.getElementById('per').innerText = data.period || 1;
+
+            const ov = document.getElementById('overlay');
+            if (data.showOverlay && data.overlayUrl) {
+                ov.style.backgroundImage = `url('${data.overlayUrl}')`;
+                ov.style.display = 'block';
+            } else {
+                ov.style.display = 'none';
+            }
+        });
+
+        // Таймер
+        setInterval(() => {
+            db.ref('fields/f' + fieldNum + '/timer').once('value', snap => {
+                const t = snap.val();
+                if (!t) return;
+                let rem = t.remainingAtStart;
+                if (t.isRunning) {
+                    const elapsed = Math.floor((Date.now() - t.lastUpdate) / 1000);
+                    rem = Math.max(0, t.remainingAtStart - elapsed);
+                }
+                const m = Math.floor(rem / 60);
+                const s = rem % 60;
+                document.getElementById('time').innerText = (m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
+            });
+        }, 1000);
+    </script>
+</body>
+</html>
