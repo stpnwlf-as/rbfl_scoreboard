@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RBFL Control Center</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .field-selector { display: flex; gap: 5px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+        .field-btn { padding: 10px 15px; background: #333; border: none; color: white; cursor: pointer; border-radius: 5px; font-size: 0.9em; }
+        .field-btn.active { background: #1e7b4d; font-weight: bold; box-shadow: 0 0 10px #1e7b4d; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 15px; width: 100%; max-width: 450px; border: 1px solid #333; }
+        h2 { color: #1e7b4d; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        h3 { margin-top: 0; font-size: 1em; color: #aaa; text-transform: uppercase; }
+        
+        .flex { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; }
+        input { padding: 12px; border-radius: 6px; border: 1px solid #333; background: #000; color: white; box-sizing: border-box; }
+        button { flex: 1; padding: 12px; cursor: pointer; border: none; border-radius: 6px; font-weight: bold; }
+        
+        /* Стили таймера */
+        .timer-display { font-size: 3.5em; text-align: center; color: #ff9800; font-family: monospace; margin: 10px 0; font-weight: bold; background: #000; border-radius: 10px; padding: 10px; }
+        .time-input-group { display: flex; gap: 5px; align-items: center; justify-content: center; margin-bottom: 15px; }
+        .time-input-group input { width: 70px; text-align: center; font-size: 1.2em; }
+        .adjust-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+        .btn-adj { background: #444; color: #fff; padding: 8px; font-size: 0.9em; }
+        .btn-adj:active { background: #555; }
+        
+        .btn-plus { background: #2196F3; color: white; font-size: 1.5em; height: 60px; }
+        .btn-minus { background: #444; color: white; margin-top: 8px; font-size: 0.9em; }
+        .admin-score-display { font-size: 3.5em; font-weight: 900; color: #1e7b4d; margin: 5px 0; }
+    </style>
+</head>
+<body>
+
+    <h2 id="adminTitle">ТАБЛО №1</h2>
+    
+    <div class="field-selector" id="fieldBtns">
+        </div>
+
+    <div class="card">
+        <h3>Счет матча</h3>
+        <div class="flex">
+            <div style="flex:1; text-align:center;">
+                <div id="curHome" style="font-size: 0.8em; font-weight: bold;">ХОЗЯЕВА</div>
+                <div id="scoreHome" class="admin-score-display">0</div>
+                <button class="btn-plus" onclick="changeScore('home', 1)">+1</button>
+                <button class="btn-minus" onclick="changeScore('home', -1)">-1</button>
+            </div>
+            <div style="flex:1; text-align:center;">
+                <div id="curAway" style="font-size: 0.8em; font-weight: bold;">ГОСТИ</div>
+                <div id="scoreAway" class="admin-score-display">0</div>
+                <button class="btn-plus" onclick="changeScore('away', 1)">+1</button>
+                <button class="btn-minus" onclick="changeScore('away', -1)">-1</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Время и Тайм</h3>
+        <div class="timer-display" id="adminTimer">00:00</div>
+        
+        <div class="adjust-grid">
+            <button class="btn-adj" onclick="adjustTime(60)">+ 1 МИН</button>
+            <button class="btn-adj" onclick="adjustTime(-60)">- 1 МИН</button>
+            <button class="btn-adj" onclick="adjustTime(15)">+ 15 СЕК</button>
+            <button class="btn-adj" onclick="adjustTime(-15)">- 15 СЕК</button>
+        </div>
+
+        <div class="time-input-group">
+            <input type="number" id="manualMin" placeholder="МИН" min="0">
+            <span>:</span>
+            <input type="number" id="manualSec" placeholder="СЕК" min="0" max="59">
+            <button style="background: #1e7b4d; color: white; flex: none; width: 120px;" onclick="setManualTime()">УСТАНОВИТЬ</button>
+        </div>
+
+        <div class="flex">
+            <button id="startBtn" style="background:#1e7b4d; color:white; height: 60px; font-size: 1.2em;" onclick="toggleTimer()">СТАРТ</button>
+        </div>
+        
+        <div class="flex" style="margin-top:15px;">
+            <button id="p1" style="background:#333; color:white;" onclick="setPeriod(1)">1 ТАЙМ</button>
+            <button id="p2" style="background:#333; color:white;" onclick="setPeriod(2)">2 ТАЙМ</button>
+            <button style="background:#444; color:white;" onclick="resetTimer()">СБРОС</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Названия команд</h3>
+        <input type="text" id="teamHome" placeholder="Название Хозяев" style="width: 100%; margin-bottom: 5px;">
+        <input type="text" id="teamAway" placeholder="Название Гостей" style="width: 100%; margin-bottom: 10px;">
+        <button style="background: #1e7b4d; color: white; width: 100%;" onclick="updateTeams()">Обновить названия</button>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyClxwTPMqybIpYEllgyL6_H5an_1N05kzM",
+            authDomain: "scoreboard-6f187.firebaseapp.com",
+            databaseURL: "https://scoreboard-6f187-default-rtdb.firebaseio.com",
+            projectId: "scoreboard-6f187",
+            storageBucket: "scoreboard-6f187.firebasestorage.app",
+            messagingSenderId: "357357389212",
+            appId: "1:357357389212:web:c1f13292a9ec0745afb459"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentField = 1;
+        let fieldRef = null;
+
+        // Создание кнопок полей
+        const fb = document.getElementById('fieldBtns');
+        for(let i=1; i<=5; i++) {
+            let btn = document.createElement('button');
+            btn.className = 'field-btn' + (i===1?' active':'');
+            btn.innerText = 'Поле №' + i;
+            btn.onclick = () => selectField(i, btn);
+            fb.appendChild(btn);
+        }
+
+        function selectField(n, btn) {
+            currentField = n;
+            document.querySelectorAll('.field-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('adminTitle').innerText = "ТАБЛО №" + n;
+            initFieldListener();
+        }
+
+        function initFieldListener() {
+            if (fieldRef) fieldRef.off();
+            fieldRef = db.ref('fields/f' + currentField);
+            fieldRef.on('value', snap => {
+                const data = snap.val();
+                if (!data) return;
+                document.getElementById('scoreHome').innerText = data.homeScore || 0;
+                document.getElementById('scoreAway').innerText = data.awayScore || 0;
+                document.getElementById('curHome').innerText = data.homeName || "ХОЗЯЕВА";
+                document.getElementById('curAway').innerText = data.awayName || "ГОСТИ";
+                document.getElementById('p1').style.background = data.period == 1 ? "#1e7b4d" : "#333";
+                document.getElementById('p2').style.background = data.period == 2 ? "#1e7b4d" : "#333";
+            });
+        }
+
+        function changeScore(team, val) {
+            db.ref('fields/f' + currentField + '/' + team + 'Score').transaction(s => Math.max(0, (s || 0) + val));
+        }
+
+        function updateTeams() {
+            db.ref('fields/f' + currentField).update({
+                homeName: document.getElementById('teamHome').value || "ХОЗЯЕВА",
+                awayName: document.getElementById('teamAway').value || "ГОСТИ"
+            });
+        }
+
+        function setPeriod(p) { db.ref('fields/f' + currentField + '/period').set(p); }
+
+        // --- ЛОГИКА ТАЙМЕРА ---
+
+        function setManualTime() {
+            const m = parseInt(document.getElementById('manualMin').value) || 0;
+            const s = parseInt(document.getElementById('manualSec').value) || 0;
+            const totalSec = (m * 60) + s;
+            
+            db.ref('fields/f' + currentField + '/timer').update({
+                remainingAtStart: totalSec,
+                lastUpdate: Date.now()
+            });
+        }
+
+        function adjustTime(delta) {
+            const ref = db.ref('fields/f' + currentField + '/timer');
+            ref.once('value', snap => {
+                const t = snap.val();
+                if (!t) return;
+                
+                let currentRem = t.remainingAtStart;
+                if (t.isRunning) {
+                    const elapsed = Math.floor((Date.now() - t.lastUpdate) / 1000);
+                    currentRem = Math.max(0, t.remainingAtStart - elapsed);
+                }
+                
+                const newTime = Math.max(0, currentRem + delta);
+                ref.update({
+                    remainingAtStart: newTime,
+                    lastUpdate: Date.now()
+                });
+            });
+        }
+
+        function toggleTimer() {
+            const ref = db.ref('fields/f' + currentField + '/timer');
+            ref.once('value', snap => {
+                const t = snap.val();
+                if (!t) {
+                    // Если таймера нет вообще, создаем его на 20 мин
+                    ref.set({ remainingAtStart: 1200, isRunning: true, lastUpdate: Date.now() });
+                    return;
+                }
+                const now = Date.now();
+                if (!t.isRunning) {
+                    ref.update({ isRunning: true, lastUpdate: now });
+                } else {
+                    const elapsed = Math.floor((now - t.lastUpdate) / 1000);
+                    const newRem = Math.max(0, t.remainingAtStart - elapsed);
+                    ref.update({ isRunning: false, remainingAtStart: newRem, lastUpdate: now });
+                }
+            });
+        }
+
+        function resetTimer() {
+            db.ref('fields/f' + currentField + '/timer').set({
+                remainingAtStart: 0,
+                isRunning: false,
+                lastUpdate: Date.now()
+            });
+        }
+
+        // Обновление цифр на пульте
+        setInterval(() => {
+            db.ref('fields/f' + currentField + '/timer').once('value', snap => {
+                const t = snap.val();
+                if (!t) return;
+                let rem = t.remainingAtStart;
+                if (t.isRunning) {
+                    const elapsed = Math.floor((Date.now() - t.lastUpdate) / 1000);
+                    rem = Math.max(0, t.remainingAtStart - elapsed);
+                }
+                const m = Math.floor(rem / 60);
+                const s = rem % 60;
+                document.getElementById('adminTimer').innerText = (m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
+                document.getElementById('startBtn').innerText = t.isRunning ? "ПАУЗА" : "СТАРТ";
+                document.getElementById('startBtn').style.background = t.isRunning ? "#f44336" : "#1e7b4d";
+            });
+        }, 1000);
+
+        initFieldListener();
+    </script>
+</body>
+</html>
